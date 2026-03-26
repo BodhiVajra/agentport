@@ -12,6 +12,8 @@
 
 **Why?** AI agents正在从"一次性"走向"终身数字生命"。AgentPort 让它们真正 portable。
 
+**Built with ❤️ by a Hangzhou programmer for the AI agent era.**
+
 [Install](#install) | [Quickstart](#quickstart) | [CLI Usage](#cli-usage) | [HangZhou Programmer Example](#HangZhou-programmer-example) | [Roadmap](#roadmap)
 
 ## Install

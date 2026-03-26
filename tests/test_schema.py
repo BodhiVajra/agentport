@@ -130,7 +130,7 @@ class TestAgentFile:
     def test_agent_file_creation(self) -> None:
         metadata = AgentMetadata(name="test-agent", version="1.0.0")
         state = AgentState(
-            model_config=ModelConfig(provider=ModelProvider.OPENAI, model="gpt-4"),
+            llm_model_config=ModelConfig(provider=ModelProvider.OPENAI, model="gpt-4"),
             system_prompt="You are helpful.",
         )
         agent_file = AgentFile(
@@ -277,10 +277,8 @@ class TestAgentPortValidation:
             model_config=config,
         )
         agent.add_tool(Tool(name="tool", description="Tool 1"))
-        agent.add_tool(Tool(name="tool", description="Tool 2"))
-        is_valid, errors = agent.validate()
-        assert is_valid is False
-        assert any("Duplicate tool name" in e for e in errors)
+        with pytest.raises(ValueError, match="already exists"):
+            agent.add_tool(Tool(name="tool", description="Tool 2"))
 
 
 class TestAgentPortSerialization:
@@ -323,6 +321,34 @@ class TestAgentPortSerialization:
         loaded = AgentPort.from_af(output_path)
         assert loaded.metadata.name == "test-agent"
         assert loaded.state.system_prompt == "You are helpful."
+
+    def test_from_af_legacy_format(self, tmp_path: Path) -> None:
+        agent_file = tmp_path / "legacy.af"
+        agent_file.write_text(
+            """version: "1.0"
+agent_name: "Legacy Agent"
+description: "Test legacy format"
+model_config:
+  provider: "openai"
+  model: "gpt-4o-mini"
+  temperature: 0.3
+system_prompt: "You are a helpful assistant."
+tools: []
+memory_blocks: []
+message_history: []
+tool_rules: []
+env_vars: {}
+metadata:
+  created_by: "Test"
+  created_at: "2026-03-26"
+  version: "0.1"
+"""
+        )
+        agent = AgentPort.from_af(agent_file)
+        assert agent.metadata.name == "Legacy Agent"
+        assert agent.metadata.description == "Test legacy format"
+        assert agent.state.llm_model_config.model == "gpt-4o-mini"
+        assert agent.state.llm_model_config.temperature == 0.3
 
     def test_from_af_json(self, tmp_path: Path) -> None:
         config = ModelConfig(provider=ModelProvider.OPENAI, model="gpt-4")

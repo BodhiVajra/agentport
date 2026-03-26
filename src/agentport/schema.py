@@ -149,7 +149,7 @@ class AgentMetadata(BaseModel):
 
 
 class AgentState(BaseModel):
-    model_config: ModelConfig = Field(description="LLM configuration")
+    llm_model_config: ModelConfig = Field(description="LLM configuration")
     system_prompt: str = Field(description="System prompt/instructions")
     tools: list[Tool] = Field(default_factory=list, description="Available tools")
     tool_rules: list[ToolRule] = Field(
@@ -174,6 +174,10 @@ class AgentFile(BaseModel):
     version: str = Field(default="1.0", description="Agent file format version")
     metadata: AgentMetadata = Field(description="Agent metadata")
     state: AgentState = Field(description="Agent runtime state")
+    legacy_model_config: Optional[dict[str, Any]] = Field(
+        default=None,
+        description="Legacy field for backward compatibility"
+    )
 
     @field_validator("version")
     @classmethod
@@ -181,8 +185,3 @@ class AgentFile(BaseModel):
         if not v.startswith(("1.", "2.")):
             raise ValueError("Version must be 1.x or 2.x")
         return v
-
-    model_config: Optional[dict[str, Any]] = Field(
-        default=None,
-        description="Legacy field for backward compatibility"
-    )

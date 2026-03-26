@@ -5,14 +5,15 @@ on:
     branches:
       - main
     paths:
-      - '**.py'
-      - '**.js'
-      - '**.ts'
+      - 'src/agentport/**'
+      - 'examples/**'
   workflow_dispatch:
 
 jobs:
   export-agent:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -23,90 +24,91 @@ jobs:
           python-version: '3.11'
 
       - name: Install AgentPort
-        run: |
-          pip install agentport
+        run: pip install agentport
 
-      - name: Analyze codebase
-        id: analyze
+      - name: Generate agent file
         run: |
-          echo "Analyzing codebase for agent generation..."
-          
-          FILES=$(find . -type f \( -name "*.py" -o -name "*.js" -o -name "*.ts" \) | head -20)
-          echo "files=$FILES" >> $GITHUB_OUTPUT
-          
-          TOTAL_LINES=$(find . -type f \( -name "*.py" -o -name "*.js" -o -name "*.ts" \) -exec wc -l {} + | tail -1 | awk '{print $1}')
-          echo "total_lines=$TOTAL_LINES" >> $GITHUB_OUTPUT
-
-      - name: Generate agent .af file
-        run: |
-          cat > /tmp/generate_agent.py << 'EOF'
-          import json
+          python3 << 'EOF'
           import os
+          import yaml
           from agentport import AgentPort
-          from agentport.schema import ModelConfig, ModelProvider, Tool, MemoryBlock
-
-          system_prompt = """You are an expert code reviewer specializing in Python and JavaScript.
-          Your role is to analyze code changes and provide constructive feedback on:
-          - Code quality and best practices
-          - Potential bugs and edge cases
-          - Security vulnerabilities
-          - Performance improvements
-          - Code readability and maintainability
-
-          Always provide specific, actionable feedback with code examples when possible."""
+          from agentport.schema import ModelConfig, ModelProvider, Tool
 
           config = ModelConfig(
               provider=ModelProvider.OPENAI,
-              model="gpt-4",
-              temperature=0.5,
+              model="gpt-4o-mini",
+              temperature=0.3,
+              max_tokens=4096,
+              model_kwargs={"embedding_model": "text-embedding-3-small"},
           )
 
-          review_tool = Tool(
-              name="review_code",
-              description="Review code changes and provide feedback",
-              arguments=[
-                  {
-                      "name": "file_path",
-                      "type": "string",
-                      "description": "Path to the file to review",
-                      "required": True,
-                  },
-                  {
-                      "name": "changes",
-                      "type": "string",
-                      "description": "Diff or changes to review",
-                      "required": True,
-                  },
-              ],
-          )
+          tools = [
+              Tool(
+                  name="review_code",
+                  description="审查一段Python或TypeScript代码，返回最佳实践建议",
+                  type="function",
+                  code="""def review_code(code: str, language: str = "python") -> dict:
+    # Placeholder for real review logic
+    return {
+        "feedback": "代码整体优秀！建议：添加中文注释以提升可读性。",
+        "suggestions": ["使用type hints", "优化性能瓶颈"]
+    }""",
+                  arguments=[
+                      {"name": "code", "type": "string", "description": "要审查的代码", "required": True},
+                      {"name": "language", "type": "string", "description": "代码语言", "required": False, "enum": ["python", "typescript"]},
+                  ],
+              ),
+              Tool(
+                  name="suggest_pr_optimization",
+                  description="为GitHub PR提出AI agent友好的优化建议",
+                  type="function",
+                  code="""def suggest_pr_optimization(pr_description: str) -> str:
+    return "建议：添加AgentPort兼容的export步骤，提升跨框架迁移性。" """,
+                  arguments=[
+                      {"name": "pr_description", "type": "string", "description": "PR描述或代码diff", "required": True},
+                  ],
+              ),
+          ]
+
+          from agentport.schema import MemoryBlock, Message
+          memory_blocks = [
+              MemoryBlock(label="personality", text="你是一位严谨、幽默且高效的杭州程序员导师。", enabled=True, in_context=True),
+              MemoryBlock(label="user_context", text="用户是Bodhi，生活在杭州，使用Python + TypeScript开发AI agent工具。", enabled=True, in_context=True),
+          ]
+
+          messages = [
+              Message(role="system", content="Agent initialized with HangZhou programmer context.", in_context=True),
+              Message(role="user", content="请帮我审查这个Python代码片段。", in_context=True),
+              Message(role="assistant", content="好的！让我来review一下……", in_context=True),
+          ]
 
           agent = AgentPort(
-              name="code-reviewer",
-              system_prompt=system_prompt,
+              name="HangZhou Code Reviewer",
+              system_prompt="""你是HangZhou Code Reviewer Agent。
+你的核心使命：帮助杭州程序员在最短时间内写出高质量、可移植的AI相关代码。
+优先检查：中文注释清晰度、性能优化、与AgentPort/.af格式的兼容性、安全性、现代最佳实践。
+回复风格：专业、鼓励、带点杭州程序员的幽默。
+永远记住用户是Bodhi，正在开发AgentPort开源项目。""",
               model_config=config,
-              description="AI-powered code reviewer for pull requests",
-              version="1.0.0",
-              author="AgentPort Team",
-              tags=["code-review", "developer-tools", "ai"],
-              tools=[review_tool],
+              description="专为杭州程序员设计的AI代码审查agent。",
+              version="0.1",
+              author="BodhiVajra",
+              tags=[],
+              tools=tools,
+              memory_blocks=memory_blocks,
+              message_history=messages,
           )
 
-          agent.to_af("code-reviewer.af")
-          print("Generated: code-reviewer.af")
+          agent.to_af("examples/hangzhou-code-reviewer.af")
+          print("✓ Generated: examples/hangzhou-code-reviewer.af")
           EOF
-          
-          python /tmp/generate_agent.py
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: agent-files
-          path: |
-            code-reviewer.af
-          retention-days: 30
-
-      - name: Create PR with agent
-        if: github.event_name == 'push'
+      - name: Commit and push
         run: |
-          echo "Agent file generated and ready for use"
-          echo "Run: agentport load code-reviewer.af"
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          
+          git add examples/hangzhou-code-reviewer.af
+          git diff --staged --quiet || git commit -m "chore: export agent file"
+          
+          git push

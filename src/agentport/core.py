@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
@@ -51,7 +52,7 @@ class AgentPort:
             updated_at=datetime.now(),
         )
         self.state = AgentState(
-            model_config=model_config,
+            llm_model_config=model_config,
             system_prompt=system_prompt,
             tools=tools or [],
             tool_rules=tool_rules or [],
@@ -77,8 +78,133 @@ class AgentPort:
         else:
             data = json.loads(content)
 
+        data = cls._normalize_legacy_format(data)
         agent_file = AgentFile.model_validate(data)
         return cls._from_agent_file(agent_file)
+
+    @classmethod
+    def _normalize_legacy_format(cls, data: dict[str, Any]) -> dict[str, Any]:
+        needs_normalization = False
+        if "metadata" not in data or "state" not in data:
+            needs_normalization = True
+        elif not data.get("metadata", {}).get("name"):
+            needs_normalization = True
+        elif "llm_model_config" not in data.get("state", {}):
+            needs_normalization = True
+        
+        if needs_normalization:
+            metadata = data.get("metadata", {})
+            if not metadata or "name" not in metadata:
+                metadata = {
+                    "name": data.get("agent_name", "Unnamed Agent"),
+                    "description": data.get("description"),
+                    "version": data.get("version", "1.0.0"),
+                }
+                created_by = data.get("created_by")
+                created_at = data.get("created_at")
+                if created_by:
+                    metadata["author"] = created_by
+                if created_at:
+                    metadata["created_at"] = created_at
+
+            model_config = data.get("model_config", {})
+            if isinstance(model_config, dict):
+                provider = model_config.get("provider", "openai")
+                model = model_config.get("model", "")
+                state = {
+                    "llm_model_config": {
+                        "provider": provider,
+                        "model": model,
+                        "temperature": model_config.get("temperature", 0.7),
+                        "max_tokens": model_config.get("max_tokens"),
+                        "model_kwargs": {},
+                    },
+                    "system_prompt": data.get("system_prompt", ""),
+                    "tools": cls._normalize_tools(data.get("tools", [])),
+                    "tool_rules": data.get("tool_rules", []),
+                    "memory_blocks": cls._normalize_memory_blocks(data.get("memory_blocks", [])),
+                    "message_history": cls._normalize_messages(data.get("message_history", [])),
+                    "env_vars": cls._normalize_env_vars(data.get("env_vars", {})),
+                }
+            else:
+                state = {
+                    "llm_model_config": {"provider": "openai", "model": "", "temperature": 0.7, "model_kwargs": {}},
+                    "system_prompt": data.get("system_prompt", ""),
+                    "tools": [],
+                    "tool_rules": [],
+                    "memory_blocks": [],
+                    "message_history": [],
+                    "env_vars": [],
+                }
+
+            data = {"version": data.get("version", "1.0"), "metadata": metadata, "state": state}
+
+        return data
+
+    @staticmethod
+    def _normalize_tools(tools: list[Any]) -> list[dict[str, Any]]:
+        normalized = []
+        for tool in tools:
+            if isinstance(tool, dict):
+                normalized_tool = {
+                    "name": tool.get("name", ""),
+                    "description": tool.get("description", ""),
+                    "type": "function",
+                    "code": tool.get("code"),
+                    "arguments": [],
+                    "enabled": True,
+                }
+                schema = tool.get("schema")
+                if schema and isinstance(schema, dict):
+                    props = schema.get("properties", {})
+                    args = []
+                    for prop_name, prop_info in props.items():
+                        arg = {
+                            "name": prop_name,
+                            "type": prop_info.get("type", "string"),
+                            "description": prop_info.get("description"),
+                            "required": prop_name in schema.get("required", []),
+                        }
+                        if "enum" in prop_info:
+                            arg["enum"] = prop_info["enum"]
+                        args.append(arg)
+                    normalized_tool["arguments"] = args
+                normalized.append(normalized_tool)
+        return normalized
+
+    @staticmethod
+    def _normalize_memory_blocks(blocks: list[Any]) -> list[dict[str, Any]]:
+        normalized = []
+        for block in blocks:
+            if isinstance(block, dict):
+                normalized.append({
+                    "label": block.get("label", "custom"),
+                    "text": block.get("value", block.get("text", "")),
+                    "enabled": True,
+                    "in_context": block.get("in_context", True),
+                    "metadata": {},
+                })
+        return normalized
+
+    @staticmethod
+    def _normalize_messages(messages: list[Any]) -> list[dict[str, Any]]:
+        normalized = []
+        for msg in messages:
+            if isinstance(msg, dict):
+                normalized.append({
+                    "role": msg.get("role", "user"),
+                    "content": msg.get("content", ""),
+                    "in_context": msg.get("in_context", True),
+                })
+        return normalized
+
+    @staticmethod
+    def _normalize_env_vars(env_vars: Any) -> list[dict[str, Any]]:
+        if isinstance(env_vars, dict):
+            return [{"name": k, "value": str(v), "secret": False} for k, v in env_vars.items()]
+        if isinstance(env_vars, list):
+            return env_vars
+        return []
 
     @classmethod
     def _from_agent_file(cls, agent_file: AgentFile) -> AgentPort:
@@ -88,7 +214,7 @@ class AgentPort:
         port = cls(
             name=metadata.name,
             system_prompt=state.system_prompt,
-            model_config=state.model_config,
+            model_config=state.llm_model_config,
             description=metadata.description,
             version=metadata.version,
             author=metadata.author,
@@ -142,9 +268,9 @@ class AgentPort:
             errors.append("Agent name is required")
         if not self.state.system_prompt:
             errors.append("System prompt is required")
-        if not self.state.model_config.provider:
+        if not self.state.llm_model_config.provider:
             errors.append("Model provider is required")
-        if not self.state.model_config.model:
+        if not self.state.llm_model_config.model:
             errors.append("Model name is required")
 
         tool_names = set()
@@ -212,7 +338,7 @@ class AgentPort:
     def __repr__(self) -> str:
         return (
             f"AgentPort(name='{self.metadata.name}', "
-            f"model='{self.state.model_config.provider.value}:{self.state.model_config.model}', "
+            f"model='{self.state.llm_model_config.provider.value}:{self.state.llm_model_config.model}', "
             f"tools={len(self.state.tools)}, "
             f"memory_blocks={len(self.state.memory_blocks)})"
         )

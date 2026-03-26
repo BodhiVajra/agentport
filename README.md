@@ -1,6 +1,10 @@
 # AgentPort 🚀
 **Built by a China programmer who wants AI agents to have real portability.**
 
+[![Python](https://img.shields.io/pypi/pyversions/agentport.svg)](https://pypi.org/project/agentport/)
+[![License](https://img.shields.io/pypi/l/agentport.svg)](https://github.com/BodhiVajra/agentport/blob/main/LICENSE)
+[![Stars](https://img.shields.io/github/stars/BodhiVajra/agentport.svg)](https://github.com/BodhiVajra/agentport)
+
 **The missing piece for stateful AI agents: portable, interchangeable, GitHub-native.**
 
 支持 .af（Letta官方格式） + 跨框架转换 + CLI + GitHub Action。  
@@ -15,6 +19,8 @@
 ```bash
 pip install agentport
 ```
+
+**即将发布 PyPI，敬请期待！**
 
 Or using uv:
 
@@ -116,11 +122,10 @@ agentport import examples/hangzhou-code-reviewer.af --to json
 | `agentport info <file.af>` | Show agent details |
 | `agentport export <file.af> [--format yaml\|json]` | Export to specified format |
 | `agentport import <file.af> [--to json]` | Import and convert .af file |
-| `agentport info <file.af>` | Show agent details |
 
 ## Hangzhou Programmer Example
 
-示例：hangzhou-code-reviewer.af
+示例：examples/hangzhou-code-reviewer.af  
 一个专为杭州程序员打造的代码审查agent。你可以用AgentPort轻松迁移到任何支持.af 的框架，随时在通勤地铁上继续审查代码。
 
 Meet **Jinxiang**, a backend engineer in HangZhou. He's working on a team with developers across China, using Claude Code for code review.
@@ -135,13 +140,13 @@ Jinxiang's team reviews 50+ PRs daily. Manual code review is:
 ### The Solution: AgentPort Code Reviewer
 
 ```bash
-# Load the code-reviewer agent
-agentport import examples/code-reviewer.af --to json
+# Load the HangZhou code-reviewer agent
+agentport info examples/hangzhou-code-reviewer.af
 ```
 
-The `code-reviewer.af` agent includes:
+The `hangzhou-code-reviewer.af` agent includes:
 - **System Prompt**: Expert code reviewer specializing in Python/JS/TS
-- **Tools**: `review_code`, `check_security`, `suggest_tests`
+- **Tools**: `review_code`, `suggest_pr_optimization`, `check_alipay_compatible`, `optimize_for_china_cloud`
 - **Memory**: Persona + guidelines + context blocks
 
 ### Real Workflow
@@ -149,7 +154,7 @@ The `code-reviewer.af` agent includes:
 ```python
 from agentport import AgentPort
 
-agent = AgentPort.from_af("examples/code-reviewer.af")
+agent = AgentPort.from_af("examples/hangzhou-code-reviewer.af")
 
 # Jinxiang's workflow:
 # 1. Pull request arrives
@@ -173,6 +178,7 @@ agent = AgentPort.from_af("examples/code-reviewer.af")
 - 🔒 **Catch security issues** - Always run security checks
 - 📊 **Consistent quality** - Same standards every time
 - 📚 **Learn and improve** - Agent suggests test cases
+- 🇨🇳 **China Cloud Ready** - Special tools for Alipay/compatible and China cloud optimization
 
 ### Portability
 
@@ -180,10 +186,10 @@ Jinxiang can share his reviewer agent:
 
 ```bash
 # Export and share
-agentport export code-reviewer.af --format yaml
+agentport export examples/hangzhou-code-reviewer.af --format yaml
 
 # Team member imports
-agentport import tanaka-reviewer.af
+agentport import examples/hangzhou-code-reviewer.af
 ```
 
 Now the whole team uses the same expert reviewer!
@@ -194,4 +200,5 @@ Now the whole team uses the same expert reviewer!
 - [x] Load/Save .af files
 - [x] CLI tool with import/export commands
 - [x] Basic converters (JSON state)
+- [x] Legacy format auto-normalization
 - [x] GitHub Action for automatic export

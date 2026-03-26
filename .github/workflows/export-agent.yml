@@ -1,0 +1,112 @@
+name: Export Agent
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '**.py'
+      - '**.js'
+      - '**.ts'
+  workflow_dispatch:
+
+jobs:
+  export-agent:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install AgentPort
+        run: |
+          pip install agentport
+
+      - name: Analyze codebase
+        id: analyze
+        run: |
+          echo "Analyzing codebase for agent generation..."
+          
+          FILES=$(find . -type f \( -name "*.py" -o -name "*.js" -o -name "*.ts" \) | head -20)
+          echo "files=$FILES" >> $GITHUB_OUTPUT
+          
+          TOTAL_LINES=$(find . -type f \( -name "*.py" -o -name "*.js" -o -name "*.ts" \) -exec wc -l {} + | tail -1 | awk '{print $1}')
+          echo "total_lines=$TOTAL_LINES" >> $GITHUB_OUTPUT
+
+      - name: Generate agent .af file
+        run: |
+          cat > /tmp/generate_agent.py << 'EOF'
+          import json
+          import os
+          from agentport import AgentPort
+          from agentport.schema import ModelConfig, ModelProvider, Tool, MemoryBlock
+
+          system_prompt = """You are an expert code reviewer specializing in Python and JavaScript.
+          Your role is to analyze code changes and provide constructive feedback on:
+          - Code quality and best practices
+          - Potential bugs and edge cases
+          - Security vulnerabilities
+          - Performance improvements
+          - Code readability and maintainability
+
+          Always provide specific, actionable feedback with code examples when possible."""
+
+          config = ModelConfig(
+              provider=ModelProvider.OPENAI,
+              model="gpt-4",
+              temperature=0.5,
+          )
+
+          review_tool = Tool(
+              name="review_code",
+              description="Review code changes and provide feedback",
+              arguments=[
+                  {
+                      "name": "file_path",
+                      "type": "string",
+                      "description": "Path to the file to review",
+                      "required": True,
+                  },
+                  {
+                      "name": "changes",
+                      "type": "string",
+                      "description": "Diff or changes to review",
+                      "required": True,
+                  },
+              ],
+          )
+
+          agent = AgentPort(
+              name="code-reviewer",
+              system_prompt=system_prompt,
+              model_config=config,
+              description="AI-powered code reviewer for pull requests",
+              version="1.0.0",
+              author="AgentPort Team",
+              tags=["code-review", "developer-tools", "ai"],
+              tools=[review_tool],
+          )
+
+          agent.to_af("code-reviewer.af")
+          print("Generated: code-reviewer.af")
+          EOF
+          
+          python /tmp/generate_agent.py
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-files
+          path: |
+            code-reviewer.af
+          retention-days: 30
+
+      - name: Create PR with agent
+        if: github.event_name == 'push'
+        run: |
+          echo "Agent file generated and ready for use"
+          echo "Run: agentport load code-reviewer.af"

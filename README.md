@@ -1,18 +1,19 @@
 # AgentPort 🚀
-**Built by a China programmer who wants AI agents to have real portability.**
 
-[![Python](https://img.shields.io/pypi/pyversions/agentport.svg)](https://pypi.org/project/agentport/)
-[![License](https://img.shields.io/pypi/l/agentport.svg)](https://github.com/BodhiVajra/agentport/blob/main/LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/BodhiVajra/agentport/blob/main/LICENSE)
 [![Stars](https://img.shields.io/github/stars/BodhiVajra/agentport.svg)](https://github.com/BodhiVajra/agentport)
+[![Built by Hangzhou Programmer](https://img.shields.io/badge/Built%20by-Hangzhou%20Programmer-orange.svg)](https://github.com/BodhiVajra/agentport)
+
+**Built with ❤️ by a Hangzhou programmer for the AI agent era.**
 
 **The missing piece for stateful AI agents: portable, interchangeable, GitHub-native.**
 
-支持 .af（Letta官方格式） + 跨框架转换 + CLI + GitHub Action。  
+支持 .af（Letta官方格式） + 跨框架转换 + CLI + GitHub Action。
+
 让你的agent像Docker容器一样：随时 checkpoint、迁移、版本控制、分享。
 
 **Why?** AI agents正在从"一次性"走向"终身数字生命"。AgentPort 让它们真正 portable。
-
-**Built with ❤️ by a Hangzhou programmer for the AI agent era.**
 
 [Install](#install) | [Quickstart](#quickstart) | [CLI Usage](#cli-usage) | [HangZhou Programmer Example](#HangZhou-programmer-example) | [Roadmap](#roadmap)
 
@@ -21,14 +22,7 @@
 ```bash
 pip install agentport
 ```
-
 **即将发布 PyPI，敬请期待！**
-
-Or using uv:
-
-```bash
-uv add agentport
-```
 
 ## Quickstart
 

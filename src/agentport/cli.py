@@ -8,6 +8,7 @@ from typing_extensions import Annotated
 
 from agentport import AgentPort, ValidationError
 from agentport.converters import to_json, from_json
+from agentport.dna import PriorityLevel
 
 app = typer.Typer(
     name="agentport",
@@ -335,6 +336,245 @@ def migrate(
         raise typer.Exit(code=1, message=str(e))
     except Exception as e:
         raise typer.Exit(code=1, message=f"Migration failed: {e}")
+
+
+@app.command()
+def config(
+    action: Annotated[str, typer.Argument(help="Action: get, set, list, remove")],
+    key: Annotated[Optional[str], typer.Argument(help="Config key (for get/set/remove)")] = None,
+    value: Annotated[Optional[str], typer.Argument(help="Config value (for set)")] = None,
+) -> None:
+    """Manage AgentPort configuration (API keys, settings).
+    
+    Examples:
+        agentport config list
+        agentport config set api_key YOUR_MINIMAX_KEY
+        agentport config get api_key
+        agentport config set model gpt-4
+        agentport config remove api_key
+    """
+    import os
+    from pathlib import Path
+    import tempfile
+    
+    config_dir = Path(tempfile.gettempdir()) / "agentport"
+    config_file = config_dir / "config.json"
+    config_dir.mkdir(parents=True, exist_ok=True)
+    
+    def load_config() -> dict:
+        if config_file.exists():
+            import json
+            return json.loads(config_file.read_text())
+        return {}
+    
+    def save_config(cfg: dict) -> None:
+        import json
+        config_file.write_text(json.dumps(cfg, indent=2, ensure_ascii=False))
+    
+    cfg = load_config()
+    
+    if action == "list":
+        from rich.console import Console
+        from rich.table import Table
+        console = Console()
+        
+        table = Table(title="AgentPort Configuration")
+        table.add_column("Key", style="cyan")
+        table.add_column("Value", style="yellow")
+        
+        if cfg:
+            for k, v in cfg.items():
+                display_val = "*****" if "key" in k.lower() or "secret" in k.lower() else str(v)
+                table.add_row(k, display_val)
+        else:
+            table.add_row("[dim]no config[/dim]", "[dim]run 'agentport config set' to add[/dim]")
+        
+        console.print(table)
+        console.print(f"\n[dim]Config file: {config_file}[/dim]")
+        
+    elif action == "get":
+        if not key:
+            raise typer.Exit(code=1, message="Missing key. Usage: agentport config get <key>")
+        
+        if key in cfg:
+            val = cfg[key]
+            if "key" in key.lower() or "secret" in key.lower():
+                val = "*****"
+            typer.echo(f"{key}: {val}")
+        else:
+            typer.echo(f"Key '{key}' not found")
+            
+    elif action == "set":
+        if not key or not value:
+            raise typer.Exit(code=1, message="Missing key or value. Usage: agentport config set <key> <value>")
+        
+        cfg[key] = value
+        save_config(cfg)
+        typer.echo(f"✓ Set {key} = {'*****' if 'key' in key.lower() else value}")
+        
+    elif action == "remove" or action == "delete":
+        if not key:
+            raise typer.Exit(code=1, message="Missing key. Usage: agentport config remove <key>")
+        
+        if key in cfg:
+            del cfg[key]
+            save_config(cfg)
+            typer.echo(f"✓ Removed {key}")
+        else:
+            typer.echo(f"Key '{key}' not found")
+            
+    else:
+        raise typer.Exit(code=1, message=f"Unknown action: {action}. Use: get, set, list, remove")
+
+
+@app.command()
+def edit(
+    path: Annotated[str, typer.Argument(help="Input agent file (.af, .apf, .json)")],
+    mode: Annotated[str, typer.Option("--mode", "-m", help="Edit mode: visual, compress, classify")] = "visual",
+    output: Annotated[Optional[str], typer.Option("--output", "-o", help="Output file path")] = None,
+    api_key: Annotated[Optional[str], typer.Option("--api-key", "-k", help="LLM API key (or set via: agentport config set api_key YOUR_KEY)")] = None,
+) -> None:
+    """Edit agent DNA with visual memory editor."""
+    try:
+        from rich.console import Console
+        from rich.table import Table
+        from rich.panel import Panel
+        
+        console = Console()
+        
+        from agentport.dna import AgentDNA, APFFile
+        from agentport.engine import IntelligentMemoryEngine, load_apf, save_apf
+        
+        file_path = Path(path)
+        if not file_path.exists():
+            raise typer.Exit(code=1, message=f"File not found: {path}")
+        
+        effective_api_key = api_key
+        if not effective_api_key:
+            import tempfile
+            config_dir = Path(tempfile.gettempdir()) / "agentport"
+            config_file = config_dir / "config.json"
+            if config_file.exists():
+                import json
+                cfg = json.loads(config_file.read_text())
+                effective_api_key = cfg.get("api_key") or cfg.get("minimax_api_key")
+        
+        if file_path.suffix == ".apf":
+            dna = load_apf(str(file_path))
+        else:
+            agent = AgentPort.from_af(file_path)
+            from agentport.dna import (
+                CoreIdentity, 
+                LayeredMemorySystem, 
+                ToolWorkflowLayer, 
+                FrameworkAdapterLayer,
+            )
+            from agentport.schema import ModelProvider
+            
+            core = CoreIdentity(
+                name=agent.metadata.name,
+                description=agent.metadata.description or "",
+                author=agent.metadata.author,
+                human_vision="Code Reviewer",
+            )
+            
+            memories = []
+            if agent.state.memory_blocks:
+                from agentport.dna import MemoryBlockDNA, MemoryType
+                for i, mb in enumerate(agent.state.memory_blocks):
+                    memories.append(MemoryBlockDNA(
+                        id=f"mem-{i}",
+                        memory_type=MemoryType.SEMANTIC,
+                        content=mb.text,
+                        priority=PriorityLevel.MEDIUM,
+                    ))
+            
+            memory_sys = LayeredMemorySystem(semantic=memories)
+            tool_layer = ToolWorkflowLayer(
+                tools=[], 
+            )
+            adapter = FrameworkAdapterLayer()
+            
+            dna = AgentDNA(
+                core_identity=core,
+                memory_system=memory_sys,
+                tool_layer=tool_layer,
+                adapter_layer=adapter,
+            )
+        
+        if mode == "visual":
+            console.print(Panel.fit(
+                f"[bold cyan]Agent DNA Visual Editor[/bold cyan]\n\n"
+                f"{dna.core_identity.name}\n"
+                f"Vision: {dna.core_identity.human_vision}",
+                border_style="cyan"
+            ))
+            
+            table = Table(title="Layered Memory System")
+            table.add_column("ID", style="cyan")
+            table.add_column("Type", style="yellow")
+            table.add_column("Content", style="white")
+            table.add_column("Priority", style="magenta")
+            table.add_column("Compressed", style="green")
+            
+            for mem in dna.memory_system.get_all_memories():
+                table.add_row(
+                    mem.id,
+                    mem.memory_type.value,
+                    mem.content[:50] + "..." if len(mem.content) > 50 else mem.content,
+                    mem.priority.value,
+                    "✓" if mem.compressed else "-",
+                )
+            
+            console.print(table)
+            
+            console.print(f"\n[bold]Memory Stats:[/bold]")
+            console.print(f"  Total blocks: {len(dna.memory_system.get_all_memories())}")
+            console.print(f"  Tokens (original): {dna.memory_system.total_tokens_estimate}")
+            console.print(f"  Tokens (compressed): {dna.memory_system.compressed_tokens}")
+            
+        elif mode == "compress":
+            if not effective_api_key:
+                console.print("[yellow]No API key provided. Use 'agentport config set api_key YOUR_KEY' or --api-key[/yellow]")
+            
+            engine = IntelligentMemoryEngine(api_key=effective_api_key) if effective_api_key else None
+            
+            if engine:
+                compressed_dna = engine.compress_agent(dna)
+                console.print(f"[green]✓ Memory compressed: {dna.memory_system.total_tokens_estimate} → {compressed_dna.memory_system.compressed_tokens} tokens[/green]")
+            else:
+                compressed_dna = dna.model_copy(deep=True)
+                compressed_dna.memory_system.compressed_tokens = (
+                    dna.memory_system.total_tokens_estimate // 2
+                )
+                console.print(f"[yellow]⚠ Basic compression applied (no API key)[/yellow]")
+            
+            output_path = Path(output) if output else file_path.with_suffix(".apf")
+            save_apf(compressed_dna, str(output_path))
+            console.print(f"[green]✓ Saved to: {output_path}[/green]")
+            
+        elif mode == "classify":
+            if not effective_api_key:
+                raise typer.Exit(code=1, message="API key required. Use 'agentport config set api_key YOUR_KEY' or --api-key")
+            
+            engine = IntelligentMemoryEngine(api_key=effective_api_key)
+            all_memories = dna.memory_system.get_all_memories()
+            
+            console.print("[yellow]Classifying memories...[/yellow]")
+            classified = engine.classify(all_memories)
+            
+            for mem in classified:
+                console.print(f"  {mem.id}: {mem.memory_type.value}")
+            
+            console.print(f"[green]✓ Classified {len(classified)} memories[/green]")
+            
+        else:
+            raise typer.Exit(code=1, message=f"Unknown mode: {mode}. Use: visual, compress, classify")
+
+    except FileNotFoundError as e:
+        raise typer.Exit(code=1, message=str(e))
+    except Exception as e:
+        raise typer.Exit(code=1, message=f"Edit failed: {e}")
 
 
 def main() -> None:

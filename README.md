@@ -220,6 +220,43 @@ agentport migrate examples/hangzhou-openclaw-reviewer.json --from openclaw --to 
 - **Maps Concepts**: Tools ↔ Skills, Memory Blocks ↔ Memory, Model Config ↔ Settings
 - **Auto-Conversion**: Handles field naming differences automatically
 
+## Agent DNA Architecture / Agent DNA 架构
+
+**4层 + 1引擎：赋予agent真正的"数字生命"**
+
+### Core Identity Layer / 核心身份层（不可变）
+存放agent的"灵魂"：name、description、author、human-vision（人类主导的原始意图）。
+强制人类review才能修改，防止AI自己乱进化。
+
+### Layered Memory System / 分层记忆系统
+- **Episodic**: 原始对话历史
+- **Semantic**: 提炼后的知识块（自动分类+压缩）
+- **Procedural**: 工具和工作流
+- **Annotation**: 人类标注层（"重要"、"痛点"、"待压缩"）
+
+### Tool & Workflow Layer / 工具与工作流层
+所有tools的schema + 代码 + 执行环境。
+
+### Framework Adapter Layer / 框架适配层
+Letta(.af) ⇄ OpenClaw(.json) ⇄ .apf（通用格式）
+
+### Intelligent Memory Engine / 智能压缩引擎
+可视化编辑 + LLM压缩。默认使用 MiniMax API（abab6.5s-chat 模型），设置API Key后自动：分类、提炼、压缩（体积缩小70%仍保留"灵魂"）。
+
+```bash
+# 先设置 MiniMax API Key（支持国内支付）
+agentport config set api_key YOUR_MINIMAX_KEY
+
+# Visual memory editor (CLI)
+agentport edit examples/hangzhou-code-reviewer.af --mode visual
+
+# Compress with LLM
+agentport edit examples/hangzhou-code-reviewer.af --mode compress
+
+# Classify memories
+agentport edit examples/hangzhou-code-reviewer.af --mode classify
+```
+
 ## Roadmap
 
 - [x] Core Schema: Pydantic models for .af format
@@ -229,3 +266,4 @@ agentport migrate examples/hangzhou-openclaw-reviewer.json --from openclaw --to 
 - [x] Legacy format auto-normalization
 - [x] GitHub Action for automatic export
 - [x] Letta <-> OpenClaw migration
+- [ ] Agent DNA + Visual Memory Editor

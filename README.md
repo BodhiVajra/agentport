@@ -6,25 +6,27 @@
 [![Stars](https://img.shields.io/github/stars/BodhiVajra/agentport.svg)](https://github.com/BodhiVajra/agentport)
 
 **Built with ❤️ by a Hangzhou programmer for the AI agent era.**
+**杭州程序员为AI agent时代而打造。**
 
 **The missing piece for stateful AI agents: portable, interchangeable, GitHub-native.**
+**有状态的AI智能体的缺失拼图：可移植、可互换、GitHub原生。**
 
-支持 .af（Letta官方格式） + 跨框架转换 + CLI + GitHub Action。
+Support Letta(.af) ⇄ OpenClaw migration · CLI tools · GitHub Action · Cross-framework portability.
+**支持 Letta(.af) ⇄ OpenClaw 双向迁移 · CLI 工具 · GitHub Action · 跨框架可移植性。**
 
-让你的agent像Docker容器一样：随时 checkpoint、迁移、版本控制、分享。
-
-**Why?** AI agents正在从"一次性"走向"终身数字生命"。AgentPort 让它们真正 portable。
+Your agent, your digital life. No lock-in, no rebuild. Migrate anytime, anywhere.
+**你的agent，你的数字生命。无锁定，无需重建。随时迁移，随处使用。**
 
 [Install](#install) | [Quickstart](#quickstart) | [CLI Usage](#cli-usage) | [HangZhou Programmer Example](#HangZhou-programmer-example) | [Roadmap](#roadmap)
 
-## Install
+## Install / 安装
 
 ```bash
 pip install agentport
 ```
-**即将发布 PyPI，敬请期待！**
+**Coming soon to PyPI! 即将发布 PyPI，敬请期待！**
 
-## Quickstart
+## Quickstart / 快速开始
 
 ```python
 from agentport import AgentPort

@@ -44,7 +44,7 @@ jobs:
           echo "timestamp=$TIMESTAMP" >> $GITHUB_OUTPUT
 
       - name: Commit and push portable version
-        run |
+        run: |
           TIMESTAMP=${{ steps.export.outputs.timestamp }}
           PORTABLE_FILE=${{ steps.export.outputs.portable_file }}
           

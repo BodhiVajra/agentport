@@ -1,9 +1,9 @@
 # AgentPort 🚀
 
-[![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/BodhiVajra/agentport/blob/main/LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/) 
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/BodhiVajra/agentport/blob/main/LICENSE) 
+[![Built by Hangzhou Programmer](https://img.shields.io/badge/Built%20by-Hangzhou%20Programmer-orange.svg)](https://github.com/BodhiVajra/agentport) 
 [![Stars](https://img.shields.io/github/stars/BodhiVajra/agentport.svg)](https://github.com/BodhiVajra/agentport)
-[![Built by Hangzhou Programmer](https://img.shields.io/badge/Built%20by-Hangzhou%20Programmer-orange.svg)](https://github.com/BodhiVajra/agentport)
 
 **Built with ❤️ by a Hangzhou programmer for the AI agent era.**
 
@@ -190,6 +190,34 @@ agentport import examples/hangzhou-code-reviewer.af
 
 Now the whole team uses the same expert reviewer!
 
+## Multi-Framework Migration
+
+**解决agent框架快速迭代带来的反复训练痛点，先支持Letta + OpenClaw。**
+
+AgentPort 让你的 agent 真正具备"数字生命"——不依赖于特定框架，随时迁移、备份、分享。
+
+```bash
+# Migrate Letta .af to OpenClaw format
+agentport migrate examples/hangzhou-code-reviewer.af --from letta --to openclaw
+
+# Migrate OpenClaw JSON to Letta .af format
+agentport migrate examples/hangzhou-openclaw-reviewer.json --from openclaw --to letta
+```
+
+### Supported Migrations
+
+| From | To | Status |
+|------|-----|--------|
+| Letta (.af) | OpenClaw (.json) | ✅ |
+| OpenClaw (.json) | Letta (.af) | ✅ |
+
+### Migration Features
+
+- **Rich Table Output**: Shows comparison before/after migration
+- **Preserves Identity**: Agent name, description, author
+- **Maps Concepts**: Tools ↔ Skills, Memory Blocks ↔ Memory, Model Config ↔ Settings
+- **Auto-Conversion**: Handles field naming differences automatically
+
 ## Roadmap
 
 - [x] Core Schema: Pydantic models for .af format
@@ -198,3 +226,4 @@ Now the whole team uses the same expert reviewer!
 - [x] Basic converters (JSON state)
 - [x] Legacy format auto-normalization
 - [x] GitHub Action for automatic export
+- [x] Letta <-> OpenClaw migration

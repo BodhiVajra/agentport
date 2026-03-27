@@ -24,7 +24,7 @@ jobs:
           python-version: '3.11'
 
       - name: Install AgentPort
-        run: pip install agentport
+        run: pip install -e .
 
       - name: Validate and export agent
         id: export

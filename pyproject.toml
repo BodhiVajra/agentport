@@ -1,6 +1,6 @@
 [project]
 name = "agentport"
-version = "0.2.0"
+version = "0.7.1"
 description = "Portable AI agents: Letta .af format support, cross-framework migration, CLI & GitHub Actions"
 readme = "README.md"
 requires-python = ">=3.10"

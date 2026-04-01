@@ -13,6 +13,15 @@ from agentport.converters.openclaw import (
     to_openclaw_file,
 )
 
+from agentport.converters.adapter import (
+    ADAPTERS,
+    FrameworkAdapter,
+    LettaAdapter,
+    OpenClawAdapter,
+    get_adapter,
+    register_adapter,
+)
+
 __all__ = [
     "to_json",
     "from_json",
@@ -23,4 +32,10 @@ __all__ = [
     "from_openclaw_to_letta",
     "from_openclaw_file",
     "to_openclaw_file",
+    "FrameworkAdapter",
+    "LettaAdapter",
+    "OpenClawAdapter",
+    "ADAPTERS",
+    "register_adapter",
+    "get_adapter",
 ]

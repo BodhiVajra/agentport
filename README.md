@@ -1,4 +1,4 @@
-# AgentPort 🚀
+# AgentPort 🚀 V0.7.1
 
 [![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/) 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/BodhiVajra/agentport/blob/main/LICENSE) 
@@ -220,6 +220,45 @@ agentport migrate examples/hangzhou-openclaw-reviewer.json --from openclaw --to 
 - **Maps Concepts**: Tools ↔ Skills, Memory Blocks ↔ Memory, Model Config ↔ Settings
 - **Auto-Conversion**: Handles field naming differences automatically
 
+## FrameworkAdapter Architecture
+
+**可扩展的适配器架构，支持一键注册新框架。**
+
+```python
+from agentport.converters import register_adapter, ADAPTERS
+
+# 查看已注册的适配器
+print(ADAPTERS.keys())  # dict_keys(['letta', 'openclaw'])
+
+# 一行代码注册新框架
+register_adapter("langchain", LangChainAdapter())
+```
+
+### Adapter API
+
+```python
+class FrameworkAdapter(ABC):
+    def to_apf(self, source_data: dict) -> AgentFile:
+        """转换为统一中间格式"""
+        
+    def from_apf(self, agent_file: AgentFile) -> dict:
+        """从中间格式转换为目标框架"""
+        
+    def validate_migration(self, before: AgentFile, after: AgentFile) -> dict:
+        """迁移一致性验证"""
+```
+
+### Extensible Design
+
+未来只需：
+
+```python
+from agentport.converters import register_adapter
+from your_langchain_adapter import LangChainAdapter
+
+register_adapter("langchain", LangChainAdapter())
+```
+
 ## Agent DNA Architecture / Agent DNA 架构
 
 **4层 + 1引擎：赋予agent真正的"数字生命"**
@@ -265,5 +304,6 @@ agentport edit examples/hangzhou-code-reviewer.af --mode classify
 - [x] Basic converters (JSON state)
 - [x] Legacy format auto-normalization
 - [x] GitHub Action for automatic export
-- [x] Letta <-> OpenClaw migration
+- [x] Letta ↔ OpenClaw migration
+- [x] FrameworkAdapter architecture (v0.7.1)
 - [ ] Agent DNA + Visual Memory Editor

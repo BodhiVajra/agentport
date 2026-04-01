@@ -274,6 +274,7 @@ def migrate(
     try:
         from rich.console import Console
         from rich.table import Table
+        import json
 
         console = Console()
 
@@ -281,56 +282,48 @@ def migrate(
         if not file_path.exists():
             raise typer.Exit(code=1, message=f"File not found: {path}")
 
-        from agentport.converters import (
-            from_openclaw_file,
-            from_letta_to_openclaw,
-            to_openclaw_file,
+        from agentport.converters import ADAPTERS, get_adapter
+
+        source_adapter = get_adapter(from_format)
+        target_adapter = get_adapter(to_format)
+
+        if not source_adapter or not target_adapter:
+            supported = list(ADAPTERS.keys())
+            raise typer.Exit(code=1, message=f"Supported formats: {', '.join(supported)}")
+
+        with open(file_path, encoding="utf-8") as f:
+            source_data = json.load(f)
+
+        agent_file = source_adapter.to_apf(source_data)
+        target_data = target_adapter.from_apf(agent_file)
+
+        output_path = Path(output) if output else file_path.with_suffix(f".{to_format}")
+
+        if to_format == "openclaw":
+            content = json.dumps(target_data, indent=2, ensure_ascii=False)
+            output_path.write_text(content, encoding="utf-8")
+        else:
+            output_path.write_text("# Agent file\n", encoding="utf-8")
+            output_path.write_text(json.dumps(target_data, indent=2, ensure_ascii=False), encoding="utf-8")
+
+        validation = source_adapter.validate_migration(
+            agent_file,
+            target_adapter.to_apf(target_data)
         )
 
-        if from_format == "letta" and to_format == "openclaw":
-            agent = AgentPort.from_af(file_path)
-            openclaw = from_letta_to_openclaw(agent)
-            
-            output_path = Path(output) if output else file_path.with_suffix(".openclaw.json")
-            content = __import__("json").dumps(openclaw.to_dict(), indent=2, ensure_ascii=False)
-            output_path.write_text(content, encoding="utf-8")
-            
-            table = Table(title="Migration: Letta → OpenClaw")
-            table.add_column("Property", style="cyan")
-            table.add_column("Letta (.af)", style="yellow")
-            table.add_column("OpenClaw (JSON)", style="green")
-            
-            table.add_row("Name", agent.metadata.name, openclaw.name or agent.metadata.name)
-            table.add_row("Tools", str(len(agent.state.tools)), str(len(openclaw.skills)))
-            table.add_row("Memory Blocks", str(len(agent.state.memory_blocks)), str(len(openclaw.memory)))
-            table.add_row("Model", agent.state.llm_model_config.model, openclaw.settings.get("llm", {}).get("model", "N/A"))
-            
-            console.print(table)
-            console.print(f"\n✓ Migrated to: {output_path}")
+        table = Table(title=f"Migration: {from_format} → {to_format}")
+        table.add_column("Property", style="cyan")
+        table.add_column("Source", style="yellow")
+        table.add_column("Target", style="green")
 
-        elif from_format == "openclaw" and to_format == "letta":
-            agent = from_openclaw_file(file_path)
-            
-            output_path = Path(output) if output else file_path.with_suffix(".af")
-            agent.to_af(output_path, format="yaml")
-            
-            table = Table(title="Migration: OpenClaw → Letta")
-            table.add_column("Property", style="cyan")
-            table.add_column("OpenClaw (JSON)", style="yellow")
-            table.add_column("Letta (.af)", style="green")
-            
-            oc_data = __import__("json").loads(file_path.read_text(encoding="utf-8"))
-            
-            table.add_row("Name", oc_data.get("name", "N/A"), agent.metadata.name)
-            table.add_row("Skills", str(len(oc_data.get("skills", []))), str(len(agent.state.tools)))
-            table.add_row("Memory", str(len(oc_data.get("memory", []))), str(len(agent.state.memory_blocks)))
-            table.add_row("Model", oc_data.get("settings", {}).get("llm", {}).get("model", "N/A"), agent.state.llm_model_config.model)
-            
-            console.print(table)
-            console.print(f"\n✓ Migrated to: {output_path}")
+        table.add_row("Name", agent_file.metadata.name, target_adapter.from_apf(agent_file).get("name", agent_file.metadata.name))
+        table.add_row("Tools", str(len(agent_file.state.tools)), str(len(target_data.get("skills", [])) if to_format == "openclaw" else str(len(target_data.get("tools", [])))))
+        table.add_row("Memory Blocks", str(len(agent_file.state.memory_blocks)), str(len(target_data.get("memory", [])) if to_format == "openclaw" else str(len(target_data.get("memory_blocks", [])))))
+        table.add_row("Model", agent_file.state.llm_model_config.model, target_data.get("settings", {}).get("llm", {}).get("model") if to_format == "openclaw" else agent_file.state.llm_model_config.model)
 
-        else:
-            raise typer.Exit(code=1, message="Supported migrations: letta->openclaw, openclaw->letta")
+        console.print(table)
+        console.print(f"\n✓ Migration validated: {validation}")
+        console.print(f"\n✓ Migrated to: {output_path}")
 
     except FileNotFoundError as e:
         raise typer.Exit(code=1, message=str(e))
